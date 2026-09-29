@@ -18,6 +18,7 @@
 #include "mtmd.h"
 #include "mtmd-helper.h"
 #include <cstdint>
+#include <cstdlib>
 #include <initializer_list>
 #include <string_view>
 
@@ -5307,8 +5308,14 @@ void server_routes::init_routes() {
             }
             images = body["images"];
         }
-        if (images.size() > 4) {
-            return reject("At most four images may be supplied");
+        // AUTOJEV_MAX_IMAGES raises the per-request image cap (default 4, as
+        // upstream); each image still costs up to the mmproj's token cap.
+        static const size_t max_images = [] {
+            const char * value = std::getenv("AUTOJEV_MAX_IMAGES");
+            return value ? static_cast<size_t>(std::strtoul(value, nullptr, 10)) : static_cast<size_t>(4);
+        }();
+        if (images.size() > max_images) {
+            return reject("At most " + std::to_string(max_images) + " images may be supplied");
         }
 
         std::vector<autojev::option_set> option_sets;
